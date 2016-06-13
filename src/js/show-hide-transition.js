@@ -64,7 +64,7 @@ var _showOrHideTimeout,
 			template.style.opacity = out ? 0 : 1;
 			_applyBgOpacity(1);
 
-			if(duration) {
+			if(duration && !out) {
 				setTimeout(function() {
 					onComplete();
 				}, duration);

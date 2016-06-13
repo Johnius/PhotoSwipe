@@ -741,21 +741,42 @@ var _gestureStartTime,
 		}
 		
 		_releaseAnimData.calculateSwipeSpeed('x');
+		_releaseAnimData.calculateSwipeSpeed('y');
 
 
 		if(_verticalDragInitiated) {
 
 			var opacityRatio = _calculateVerticalDragOpacityRatio();
+			var initialPanY = _panOffset.y,
+				initialBgOpacity = _bgOpacity;
 
 			if(opacityRatio < _options.verticalDragRange) {
-				self.close();
-			} else {
-				var initalPanY = _panOffset.y,
-					initialBgOpacity = _bgOpacity;
+				var viewportHeight = _viewportSize.y,
+					height = self.currItem.h * self.currItem.fitRatio,
+					top = initialPanY,
+					isGoingUp = (top + height / 2) < (viewportHeight / 2),
+					lastFlickSpeed = Math.abs(_releaseAnimData.lastFlickSpeed.y);
 
+				var hideDuration = (isGoingUp ? (height + top) : (viewportHeight - top)) / lastFlickSpeed;
+				hideDuration = hideDuration > 300 ? 300 : hideDuration;
+
+				_animateProp('verticalDragOut', 0, 1, hideDuration, framework.easing.cubic.out, function(now) {
+					var viewportHeight = _viewportSize.y,
+						height = self.currItem.h * self.currItem.fitRatio,
+						top = initialPanY,
+						isGoingUp = (top + height / 2) < (viewportHeight / 2),
+						panGoingUp = (height + top) * -now + top,
+						panGoingDown = (viewportHeight - top) * now + top;
+
+					_panOffset.y = isGoingUp ? panGoingUp : panGoingDown;
+
+					_applyBgOpacity( -initialBgOpacity * now + initialBgOpacity );
+					_applyCurrentZoomPan();
+				}, self.close);
+			} else {
 				_animateProp('verticalDrag', 0, 1, 300, framework.easing.cubic.out, function(now) {
 					
-					_panOffset.y = (self.currItem.initialPosition.y - initalPanY) * now + initalPanY;
+					_panOffset.y = (self.currItem.initialPosition.y - initialPanY) * now + initialPanY;
 
 					_applyBgOpacity(  (1 - initialBgOpacity) * now + initialBgOpacity );
 					_applyCurrentZoomPan();
@@ -799,14 +820,14 @@ var _gestureStartTime,
 	// It's created only once and then reused
 	_initDragReleaseAnimationData  = function() {
 		// temp local vars
-		var lastFlickDuration,
-			tempReleasePos;
+		var tempReleasePos;
 
 		// s = this
 		var s = {
 			lastFlickOffset: {},
 			lastFlickDist: {},
 			lastFlickSpeed: {},
+			lastFlickDuration: 0,
 			slowDownRatio:  {},
 			slowDownRatioReverse:  {},
 			speedDecelerationRatio:  {},
@@ -818,16 +839,16 @@ var _gestureStartTime,
 				
 
 				if( _posPoints.length > 1) {
-					lastFlickDuration = _getCurrentTime() - _gestureCheckSpeedTime + 50;
+					s.lastFlickDuration = _getCurrentTime() - _gestureCheckSpeedTime + 50;
 					tempReleasePos = _posPoints[_posPoints.length-2][axis];
 				} else {
-					lastFlickDuration = _getCurrentTime() - _gestureStartTime; // total gesture duration
+					s.lastFlickDuration = _getCurrentTime() - _gestureStartTime; // total gesture duration
 					tempReleasePos = _startPoint[axis];
 				}
 				s.lastFlickOffset[axis] = _currPoint[axis] - tempReleasePos;
 				s.lastFlickDist[axis] = Math.abs(s.lastFlickOffset[axis]);
 				if(s.lastFlickDist[axis] > 20) {
-					s.lastFlickSpeed[axis] = s.lastFlickOffset[axis] / lastFlickDuration;
+					s.lastFlickSpeed[axis] = s.lastFlickOffset[axis] / s.lastFlickDuration;
 				} else {
 					s.lastFlickSpeed[axis] = 0;
 				}
